@@ -3,6 +3,7 @@ resolver = "2"
 members = ["util"]
 
 [workspace.package]
+authors = ["Emanuele Bolognesi <ema.bolo94@gmail.com>"]
 repository = "https://github.com/quantoor/solana-trading"
 license = "MIT"
 edition = "2021"

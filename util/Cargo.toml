@@ -1,6 +1,7 @@
 [package]
 name = "solana-trading-util"
 version = "0.1.0"
+authors = { workspace = true }
 edition = { workspace = true }
 repository = { workspace = true }
 license = { workspace = true }
