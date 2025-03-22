@@ -11,24 +11,54 @@ use solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTra
 use crate::time::datetime_from_timestamp_sec;
 
 pub struct GetSignaturesSinceTimeConfig {
-    pub target: Pubkey,
-    pub since_timestamp_sec: i64,
     pub ignore_failed: bool,
+    pub limit: usize,
     pub commitment: CommitmentConfig,
     pub log_progress: bool,
+}
+
+impl Default for GetSignaturesSinceTimeConfig {
+    fn default() -> Self {
+        Self {
+            ignore_failed: false,
+            commitment: CommitmentConfig::finalized(),
+            log_progress: false,
+            limit: 1000,
+        }
+    }
+}
+
+pub struct GetTransactionsFromSignaturesConfig {
+    pub batch_size: usize,
+    pub encoding: UiTransactionEncoding,
+    pub commitment: CommitmentConfig,
+    pub log_progress: bool,
+}
+
+impl Default for GetTransactionsFromSignaturesConfig {
+    fn default() -> Self {
+        Self {
+            batch_size: 1,
+            encoding: UiTransactionEncoding::JsonParsed,
+            commitment: CommitmentConfig::finalized(),
+            log_progress: false,
+        }
+    }
 }
 
 /// Returns all the signatures for a given address since a timestamp in seconds.
 /// Signatures are returned in descending order, from the newest to the oldest.
 pub async fn get_signatures_since_time(
     rpc: &RpcClient,
+    target: Pubkey,
+    since_timestamp_sec: i64,
     config: GetSignaturesSinceTimeConfig,
 ) -> Result<Vec<RpcConfirmedTransactionStatusWithSignature>> {
     let mut signatures = rpc
         .get_signatures_for_address_with_config(
-            &config.target,
+            &target,
             GetConfirmedSignaturesForAddress2Config {
-                limit: Some(1000),
+                limit: Some(config.limit),
                 commitment: Some(config.commitment),
                 ..Default::default()
             },
@@ -42,7 +72,7 @@ pub async fn get_signatures_since_time(
     let mut oldest_signature = &signatures[signatures.len() - 1];
     let mut oldest_blocktime = oldest_signature.block_time.unwrap();
 
-    while oldest_blocktime > config.since_timestamp_sec {
+    while oldest_blocktime > since_timestamp_sec {
         if config.log_progress {
             tracing::info!(
                 "get_signatures before {:?} {}",
@@ -53,10 +83,10 @@ pub async fn get_signatures_since_time(
 
         let prev_signatures = rpc
             .get_signatures_for_address_with_config(
-                &config.target,
+                &target,
                 GetConfirmedSignaturesForAddress2Config {
                     before: Some(Signature::from_str(&oldest_signature.signature).unwrap()),
-                    limit: Some(1000),
+                    limit: Some(config.limit),
                     commitment: Some(config.commitment),
                     ..Default::default()
                 },
@@ -68,7 +98,7 @@ pub async fn get_signatures_since_time(
         oldest_blocktime = oldest_signature.block_time.unwrap();
     }
 
-    signatures.retain(|s| s.block_time.unwrap() >= config.since_timestamp_sec);
+    signatures.retain(|s| s.block_time.unwrap() >= since_timestamp_sec);
     if config.ignore_failed {
         signatures.retain(|s| s.err.is_none());
     }
@@ -76,18 +106,12 @@ pub async fn get_signatures_since_time(
     Ok(signatures)
 }
 
-pub struct GetTransactionsFromSignaturesConfig {
-    pub batch_size: usize,
-    pub signatures: Vec<Signature>,
-    pub commitment: CommitmentConfig,
-    pub log_progress: bool,
-}
-
 pub async fn get_transactions_from_signatures(
     rpc: &RpcClient,
+    signatures: Vec<Signature>,
     config: GetTransactionsFromSignaturesConfig,
 ) -> Result<Vec<EncodedConfirmedTransactionWithStatusMeta>> {
-    let n = config.signatures.len();
+    let n = signatures.len();
     let mut current_idx_min = 0;
     let mut current_idx_max = std::cmp::min(config.batch_size, n);
 
@@ -103,7 +127,7 @@ pub async fn get_transactions_from_signatures(
             );
         }
 
-        let signatures_batch = config.signatures[current_idx_min..current_idx_max].to_vec();
+        let signatures_batch = signatures[current_idx_min..current_idx_max].to_vec();
 
         let requests = signatures_batch
             .iter()
@@ -111,8 +135,8 @@ pub async fn get_transactions_from_signatures(
                 rpc.get_transaction_with_config(
                     sig,
                     RpcTransactionConfig {
-                        encoding: Some(UiTransactionEncoding::JsonParsed),
-                        commitment: Some(CommitmentConfig::confirmed()),
+                        encoding: Some(config.encoding),
+                        commitment: Some(config.commitment),
                         max_supported_transaction_version: Some(0),
                     },
                 )

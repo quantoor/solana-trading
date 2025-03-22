@@ -17,10 +17,11 @@ async fn get_signatures(rpc: &RpcClient) -> Vec<Signature> {
     println!("requesting signatures since {:?}", since);
     let signatures = get_signatures_since_time(
         rpc,
+        solana_sdk::pubkey!("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"),
+        since.timestamp(),
         GetSignaturesSinceTimeConfig {
-            target: solana_sdk::pubkey!("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"),
-            since_timestamp_sec: since.timestamp(),
             ignore_failed: true,
+            limit: 1000,
             commitment: CommitmentConfig::finalized(),
             log_progress: true,
         },
@@ -68,9 +69,10 @@ async fn main() {
 
     let txs = get_transactions_from_signatures(
         &rpc,
+        signatures,
         GetTransactionsFromSignaturesConfig {
             batch_size: 2,
-            signatures,
+            encoding: solana_transaction_status::UiTransactionEncoding::JsonParsed,
             commitment: CommitmentConfig::finalized(),
             log_progress: true,
         },
