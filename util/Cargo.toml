@@ -1,0 +1,23 @@
+[package]
+name = "solana-trading-util"
+version = "0.1.0"
+edition = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+
+[dependencies]
+anyhow = { workspace = true }
+base64 = { workspace = true }
+bincode = { workspace = true }
+chrono = { workspace = true }
+futures = { workspace = true }
+solana-client = { workspace = true }
+solana-sdk = { workspace = true }
+solana-transaction-status = { workspace = true }
+spl-associated-token-account = { workspace = true }
+spl-token = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[dev-dependencies]
+tokio = { version = "1.41.1", features = ["full"] }

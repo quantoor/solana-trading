@@ -57,16 +57,6 @@ async fn main() {
     let signatures = signatures[..10].to_vec();
     println!("{:?}", signatures);
 
-    // let signatures = vec![
-    //     "WUcNkH51Nahq8qwRxZBc4eNrHeHDD1qCu17PS8yLKzbbFmUgj2MGCxLACt4qXkyfu9DJUUqtPwYfc6YaGnRefv9",
-    //     "4ffP9jtxTvbEFKACsbUSAgyYo2iTLu6v5EAyKNvRXu3rZGvUpH4jD7V8N8urRTsooEZ7ih56sjBjCTV5XXgXUzPA",
-    //     "2Hnp2iDEZrT7GivyctukGCuLRrMoFjZqxMZZcdgoGc9bp94FaaxJMGSQbovGwHwqapokzRdj69HZmNEHm4Bb5CD9",
-    //     "4RFVtumw8ypbpSEYi7Cbhb8xDSFhR2NGk8DYv7nUtZxjAAaUbwN2iTnZ2cuNVxToUbNsyYFUaRZohQVCkHNC2XL4",
-    // ]
-    // .iter()
-    // .map(|sig| Signature::from_str(sig).unwrap())
-    // .collect();
-
     let txs = get_transactions_from_signatures(
         &rpc,
         signatures,

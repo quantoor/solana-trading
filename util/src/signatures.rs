@@ -115,7 +115,8 @@ pub async fn get_transactions_from_signatures(
     let mut current_idx_min = 0;
     let mut current_idx_max = std::cmp::min(config.batch_size, n);
 
-    let mut transactions: Vec<EncodedConfirmedTransactionWithStatusMeta> = vec![];
+    let mut transactions: Vec<EncodedConfirmedTransactionWithStatusMeta> =
+        Vec::with_capacity(signatures.len());
 
     while current_idx_max <= n {
         if config.log_progress {
