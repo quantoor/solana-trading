@@ -1,0 +1,14 @@
+[workspace]
+members = ["core"]
+resolver = "2"
+
+[profile.dev]
+debug = 0
+
+[workspace.dependencies]
+anyhow = "1"
+chrono = "0.4.38"
+solana-client = "2.0.2"
+solana-sdk = "2.0.2"
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
