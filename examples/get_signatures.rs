@@ -1,4 +1,4 @@
-use core::{
+use solana_trading_util::{
     signatures::{get_signatures_since_time, GetSignaturesSinceTimeConfig},
     time::{datetime_from_timestamp_sec, datetime_now},
 };
