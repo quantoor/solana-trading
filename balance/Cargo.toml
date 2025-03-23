@@ -1,0 +1,33 @@
+[package]
+name = "solana-trading-balance"
+version = "0.1.0"
+description = "Solana trading balance"
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+solana-trading-core = { workspace = true }
+solana-trading-util = { workspace = true }
+
+anyhow = { workspace = true }
+base64 = { workspace = true }
+bincode = { workspace = true }
+chrono = { workspace = true }
+futures = { workspace = true }
+solana-client = { workspace = true }
+solana-sdk = { workspace = true }
+solana-transaction-status = { workspace = true }
+spl-associated-token-account = { workspace = true }
+spl-token = { workspace = true }
+tonic = "0.12.3"
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+yellowstone-grpc-client = "6.0.0"
+yellowstone-grpc-proto = "6.0.0"
+
+[dev-dependencies]
+dotenv = "0.15.0"
+maplit = "1.0.2"
+tokio = { version = "1.41.1", features = ["full"] }

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["core", "util"]
+members = ["balance", "core", "util"]
 
 [workspace.package]
 authors = ["Emanuele Bolognesi <ema.bolo94@gmail.com>"]
