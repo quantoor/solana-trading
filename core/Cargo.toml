@@ -1,6 +1,7 @@
 [package]
 name = "solana-trading-core"
 version = "0.1.0"
+description = "Solana trading core"
 authors.workspace = true
 repository.workspace = true
 license.workspace = true
