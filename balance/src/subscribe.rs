@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use anyhow::Result;
 use solana_sdk::{program_pack::Pack, pubkey::Pubkey, system_program};
 use solana_trading_util::token::mints_to_associated_token_accounts;
@@ -23,6 +21,7 @@ pub struct BalanceUpdate {
     pub pubkey: Pubkey,
     pub mint: Option<Pubkey>,
     pub amount: u64,
+    pub slot: u64,
 }
 
 pub struct GrpcConfig {
@@ -54,28 +53,19 @@ pub async fn subscribe_balance_udpates(
         .await?;
     let (mut subscribe_tx, mut stream) = client.subscribe().await?;
 
-    let mut subscribe_accounts = HashMap::new();
-    // filters: vec![SubscribeRequestFilterAccountsFilter {
-    //     filter: Some(subscribe_request_filter_accounts_filter::Filter::Datasize(
-    //         165,
-    //     )),
-    // }],
-    subscribe_accounts.insert(
-        "client".to_owned(),
-        SubscribeRequestFilterAccounts {
-            nonempty_txn_signature: None,
-            account: accounts
-                .into_iter()
-                .map(|account| account.to_string())
-                .collect(),
-            owner: vec![],
-            filters: vec![],
-        },
-    );
-
     subscribe_tx
         .send(SubscribeRequest {
-            accounts: subscribe_accounts,
+            accounts: maplit::hashmap! {
+                "client".to_owned() => SubscribeRequestFilterAccounts {
+                    nonempty_txn_signature: None,
+                    account: accounts
+                        .into_iter()
+                        .map(|account| account.to_string())
+                        .collect(),
+                    owner: vec![],
+                    filters: vec![],
+                }
+            },
             commitment: Some(CommitmentLevel::Processed as i32),
             ..Default::default()
         })
@@ -111,16 +101,18 @@ pub async fn subscribe_balance_udpates(
                 UpdateOneof::Pong(SubscribeUpdatePong { id }) => {
                     info!("pong received: id#{id}");
                 }
-                UpdateOneof::Account(SubscribeUpdateAccount { account, .. }) => {
+                UpdateOneof::Account(SubscribeUpdateAccount { account, slot, .. }) => {
                     if let Some(account) = account {
+                        let account_pubkey = Pubkey::try_from(account.pubkey.clone()).unwrap();
                         let owner_pubkey = Pubkey::try_from(account.owner.clone()).unwrap();
 
                         let balance_update = if owner_pubkey == system_program::id() {
                             Some(BalanceUpdate {
                                 is_native: true,
-                                pubkey: Pubkey::try_from(account.pubkey.clone()).unwrap(),
+                                pubkey: account_pubkey,
                                 mint: None,
                                 amount: account.lamports,
+                                slot,
                             })
                         } else if owner_pubkey == spl_token::id() {
                             let account_state = spl_token::state::Account::unpack_from_slice(
@@ -129,9 +121,10 @@ pub async fn subscribe_balance_udpates(
                             .unwrap();
                             Some(BalanceUpdate {
                                 is_native: false,
-                                pubkey: Pubkey::try_from(account.pubkey.clone()).unwrap(),
+                                pubkey: account_pubkey,
                                 mint: Some(account_state.mint),
                                 amount: account_state.amount,
+                                slot,
                             })
                         } else if owner_pubkey == spl_token_2022::id() {
                             let account_state = spl_token_2022::state::Account::unpack_from_slice(
@@ -140,9 +133,10 @@ pub async fn subscribe_balance_udpates(
                             .unwrap();
                             Some(BalanceUpdate {
                                 is_native: false,
-                                pubkey: Pubkey::try_from(account.pubkey.clone()).unwrap(),
+                                pubkey: account_pubkey,
                                 mint: Some(account_state.mint),
                                 amount: account_state.amount,
+                                slot,
                             })
                         } else {
                             tracing::warn!("ignore account update {:?}", account);

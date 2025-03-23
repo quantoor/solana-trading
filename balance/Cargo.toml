@@ -16,6 +16,7 @@ base64 = { workspace = true }
 bincode = { workspace = true }
 chrono = { workspace = true }
 futures = { workspace = true }
+maplit = { workspace = true }
 solana-client = { workspace = true }
 solana-sdk = { workspace = true }
 solana-transaction-status = { workspace = true }
@@ -31,4 +32,3 @@ yellowstone-grpc-proto = "6.0.0"
 
 [dev-dependencies]
 dotenv = "0.15.0"
-maplit = "1.0.2"
