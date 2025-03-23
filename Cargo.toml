@@ -9,8 +9,8 @@ license = "MIT"
 edition = "2021"
 
 [workspace.dependencies]
-solana-trading-core = { path = "core", version = "0.1.0" }
-solana-trading-util = { path = "util", version = "0.2.0" }
+solana-trading-core = { path = "core", version = "0" }
+solana-trading-util = { path = "util", version = "0" }
 
 anyhow = "1"
 base64 = "0.20"
