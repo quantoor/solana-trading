@@ -1,6 +1,6 @@
 [package]
 name = "solana-trading-balance"
-version = "0.1.0"
+version = "0.2.0"
 description = "Solana trading balance"
 authors.workspace = true
 repository.workspace = true
@@ -22,6 +22,7 @@ solana-transaction-status = { workspace = true }
 spl-associated-token-account = { workspace = true }
 spl-token = { workspace = true }
 spl-token-2022 = { workspace = true }
+tokio = { version = "1.41.1", features = ["full"] }
 tonic = "0.12.3"
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
@@ -31,4 +32,3 @@ yellowstone-grpc-proto = "6.0.0"
 [dev-dependencies]
 dotenv = "0.15.0"
 maplit = "1.0.2"
-tokio = { version = "1.41.1", features = ["full"] }
