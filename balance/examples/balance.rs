@@ -1,11 +1,10 @@
 use std::{collections::HashMap, str::FromStr};
 
 use anyhow::Result;
-use solana_sdk::{
-    native_token::LAMPORTS_PER_SOL, program_pack::Pack, pubkey::Pubkey, system_program,
-};
+use solana_sdk::{program_pack::Pack, pubkey::Pubkey, system_program};
 use solana_trading_util::token::mints_to_associated_token_accounts;
-use tracing::info;
+use tokio::sync::mpsc;
+use tracing::{error, info};
 use yellowstone_grpc_proto::geyser::{SubscribeRequestFilterAccounts, SubscribeUpdateAccount};
 use {
     futures::{sink::SinkExt, stream::StreamExt},
@@ -18,27 +17,35 @@ use {
     },
 };
 
+#[derive(Debug)]
+pub struct BalanceUpdate {
+    pub is_native: bool,
+    pub pubkey: Pubkey,
+    pub mint: Option<Pubkey>,
+    pub amount: u64,
+}
+
 pub struct GrpcConfig {
     pub endpoint: String,
     pub x_token: Option<String>,
 }
 
-pub async fn subscribe_balance_udpates(
+pub async fn subscribe_balance_udpates_by_owner(
     grpc_config: GrpcConfig,
     owner: &Pubkey,
     mints: &Vec<(Pubkey, bool)>,
-) -> Result<()> {
+) -> Result<mpsc::Receiver<BalanceUpdate>> {
     let mut accounts: Vec<Pubkey> = vec![owner.clone()];
     let ata_accounts = mints_to_associated_token_accounts(owner, mints);
     accounts.extend(ata_accounts);
 
-    subscribe_account_udpates(grpc_config, &accounts).await
+    subscribe_balance_udpates(grpc_config, &accounts).await
 }
 
-pub async fn subscribe_account_udpates(
+pub async fn subscribe_balance_udpates(
     grpc_config: GrpcConfig,
     accounts: &Vec<Pubkey>,
-) -> Result<()> {
+) -> Result<mpsc::Receiver<BalanceUpdate>> {
     let mut client = GeyserGrpcClient::build_from_shared(grpc_config.endpoint)?
         .x_token(grpc_config.x_token)?
         .tls_config(ClientTlsConfig::new().with_native_roots())?
@@ -73,64 +80,89 @@ pub async fn subscribe_account_udpates(
         })
         .await?;
 
-    futures::try_join!(
-        async move {
-            let mut timer = interval(Duration::from_secs(3));
-            let mut id = 0;
-            loop {
-                timer.tick().await;
-                id += 1;
-                subscribe_tx
-                    .send(SubscribeRequest {
-                        ping: Some(SubscribeRequestPing { id }),
-                        ..Default::default()
-                    })
-                    .await?;
-            }
-            #[allow(unreachable_code)]
-            Ok::<(), anyhow::Error>(())
-        },
-        async move {
-            info!("start listening");
-            while let Some(message) = stream.next().await {
-                match message?.update_oneof.expect("valid message") {
-                    UpdateOneof::Ping(_msg) => {
-                        info!("ping received");
-                    }
-                    UpdateOneof::Pong(SubscribeUpdatePong { id }) => {
-                        info!("pong received: id#{id}");
-                    }
-                    UpdateOneof::Account(SubscribeUpdateAccount { account, .. }) => {
-                        if let Some(account) = account {
-                            let owner_pubkey = Pubkey::try_from(account.owner.clone()).unwrap();
-                            // info!("{:?}", owner_pubkey);
+    let (tx, rx) = mpsc::channel::<BalanceUpdate>(1024 * 1024);
 
-                            if owner_pubkey == system_program::id() {
-                                info!(
-                                    "native balance update: {:.2}",
-                                    account.lamports as f64 / LAMPORTS_PER_SOL as f64
-                                );
-                            } else if owner_pubkey == spl_token::id() {
-                                let account_state = spl_token::state::Account::unpack_from_slice(
-                                    account.data.as_slice(),
-                                )
-                                .unwrap();
-                                info!("spl balance update {:?}", account_state);
-                            } else if owner_pubkey == spl_token_2022::id() {
-                                info!("spl2022 balance update");
-                            } else {
-                                tracing::warn!("ignore account update {:?}", account);
+    tokio::spawn(async move {
+        let mut timer = interval(Duration::from_secs(3));
+        let mut id = 0;
+        loop {
+            timer.tick().await;
+            id += 1;
+            if let Err(err) = subscribe_tx
+                .send(SubscribeRequest {
+                    ping: Some(SubscribeRequestPing { id }),
+                    ..Default::default()
+                })
+                .await
+            {
+                error!(error = %err, "could not send ping");
+            }
+        }
+    });
+
+    tokio::spawn(async move {
+        info!("start listening");
+        while let Some(message) = stream.next().await {
+            match message?.update_oneof.expect("valid message") {
+                UpdateOneof::Ping(_msg) => {
+                    info!("ping received");
+                }
+                UpdateOneof::Pong(SubscribeUpdatePong { id }) => {
+                    info!("pong received: id#{id}");
+                }
+                UpdateOneof::Account(SubscribeUpdateAccount { account, .. }) => {
+                    if let Some(account) = account {
+                        let owner_pubkey = Pubkey::try_from(account.owner.clone()).unwrap();
+
+                        let balance_update = if owner_pubkey == system_program::id() {
+                            Some(BalanceUpdate {
+                                is_native: true,
+                                pubkey: Pubkey::try_from(account.pubkey.clone()).unwrap(),
+                                mint: None,
+                                amount: account.lamports,
+                            })
+                        } else if owner_pubkey == spl_token::id() {
+                            let account_state = spl_token::state::Account::unpack_from_slice(
+                                account.data.as_slice(),
+                            )
+                            .unwrap();
+                            Some(BalanceUpdate {
+                                is_native: false,
+                                pubkey: Pubkey::try_from(account.pubkey.clone()).unwrap(),
+                                mint: None,
+                                amount: account_state.amount,
+                            })
+                        } else if owner_pubkey == spl_token_2022::id() {
+                            let account_state = spl_token_2022::state::Account::unpack_from_slice(
+                                account.data.as_slice(),
+                            )
+                            .unwrap();
+                            Some(BalanceUpdate {
+                                is_native: false,
+                                pubkey: Pubkey::try_from(account.pubkey.clone()).unwrap(),
+                                mint: None,
+                                amount: account_state.amount,
+                            })
+                        } else {
+                            tracing::warn!("ignore account update {:?}", account);
+                            None
+                        };
+
+                        if let Some(balance_update) = balance_update {
+                            println!("send");
+                            if let Err(err) = tx.send(balance_update).await {
+                                error!("send error: {}", err);
                             }
                         }
-                    }
-                    msg => anyhow::bail!("received unexpected message: {msg:?}"),
+                    };
                 }
+                msg => anyhow::bail!("received unexpected message: {msg:?}"),
             }
-            Ok::<(), anyhow::Error>(())
         }
-    )?;
+        Ok(())
+    });
 
-    Ok(())
+    Ok(rx)
 }
 
 #[tokio::main]
@@ -144,7 +176,7 @@ async fn main() -> Result<()> {
     let x_token = std::env::var("GRPC_TOKEN").unwrap();
     let wallet = std::env::var("WALLET").unwrap();
 
-    subscribe_balance_udpates(
+    let mut rx = subscribe_balance_udpates_by_owner(
         GrpcConfig {
             endpoint,
             x_token: Some(x_token),
@@ -158,7 +190,9 @@ async fn main() -> Result<()> {
     .await
     .unwrap();
 
-    tokio::signal::ctrl_c().await.unwrap();
+    while let Some(update) = rx.recv().await {
+        println!("{:?}", update);
+    }
 
     Ok(())
 }
