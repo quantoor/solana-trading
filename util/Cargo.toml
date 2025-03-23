@@ -1,6 +1,6 @@
 [package]
 name = "solana-trading-util"
-version = "0.1.0"
+version = "0.2.0"
 description = "Solana trading utilities"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -8,6 +8,8 @@ repository = { workspace = true }
 license = { workspace = true }
 
 [dependencies]
+solana-trading-core = { workspace = true }
+
 anyhow = { workspace = true }
 base64 = { workspace = true }
 bincode = { workspace = true }
@@ -20,6 +22,7 @@ spl-associated-token-account = { workspace = true }
 spl-token = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+
 
 [dev-dependencies]
 tokio = { version = "1.41.1", features = ["full"] }

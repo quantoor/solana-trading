@@ -1,11 +1,9 @@
 use std::str::FromStr;
 
-use solana_trading_util::{
-    signatures::{
-        get_signatures_since_time, get_transactions_from_signatures, GetSignaturesSinceTimeConfig,
-        GetTransactionsFromSignaturesConfig,
-    },
-    time::{datetime_from_timestamp_sec, datetime_now},
+use solana_trading_core::time::{datetime_from_timestamp_sec, datetime_now};
+use solana_trading_util::signatures::{
+    get_signatures_since_time, get_transactions_from_signatures, GetSignaturesSinceTimeConfig,
+    GetTransactionsFromSignaturesConfig,
 };
 
 use solana_client::nonblocking::rpc_client::RpcClient;

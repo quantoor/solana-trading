@@ -6,9 +6,8 @@ use solana_client::{
     rpc_config::RpcTransactionConfig, rpc_response::RpcConfirmedTransactionStatusWithSignature,
 };
 use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey, signature::Signature};
+use solana_trading_core::time::datetime_from_timestamp_sec;
 use solana_transaction_status::{EncodedConfirmedTransactionWithStatusMeta, UiTransactionEncoding};
-
-use crate::time::datetime_from_timestamp_sec;
 
 pub struct GetSignaturesSinceTimeConfig {
     pub ignore_failed: bool,

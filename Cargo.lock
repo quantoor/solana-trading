@@ -5204,8 +5204,23 @@ dependencies = [
 ]
 
 [[package]]
-name = "solana-trading-util"
+name = "solana-trading-core"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "base64 0.20.0",
+ "bincode",
+ "chrono",
+ "futures",
+ "solana-sdk",
+ "spl-token 6.0.0",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "solana-trading-util"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "base64 0.20.0",
@@ -5214,6 +5229,7 @@ dependencies = [
  "futures",
  "solana-client",
  "solana-sdk",
+ "solana-trading-core",
  "solana-transaction-status",
  "spl-associated-token-account 4.0.0",
  "spl-token 6.0.0",
