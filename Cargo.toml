@@ -22,5 +22,6 @@ solana-sdk = "2.0.2"
 solana-transaction-status = "2.0.2"
 spl-associated-token-account = "4.0.0"
 spl-token = "6.0.0"
+spl-token-2022 = "7.0.0"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

@@ -8,12 +8,12 @@ use spl_associated_token_account::get_associated_token_address_with_program_id;
 pub fn mint_to_associated_token_account(
     owner: &Pubkey,
     mint: &Pubkey,
-    is_token_2022: bool, // FIXME remove
+    is_token_2022: bool,
 ) -> Pubkey {
     let program_id = if is_token_2022 {
-        solana_sdk::pubkey!("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb")
+        spl_token_2022::id()
     } else {
-        solana_sdk::pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+        spl_token::id()
     };
     get_associated_token_address_with_program_id(owner, &mint, &program_id)
 }
