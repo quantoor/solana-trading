@@ -2,8 +2,10 @@ use anyhow::Result;
 use solana_sdk::{program_pack::Pack, pubkey::Pubkey, system_program};
 use solana_trading_util::token::mints_to_associated_token_accounts;
 use tokio::sync::mpsc;
-use tracing::{error, info};
-use yellowstone_grpc_proto::geyser::{SubscribeRequestFilterAccounts, SubscribeUpdateAccount};
+use tracing::{debug, error, info};
+use yellowstone_grpc_proto::geyser::{
+    SubscribeRequestFilterAccounts, SubscribeUpdateAccount, SubscribeUpdateAccountInfo,
+};
 use {
     futures::{sink::SinkExt, stream::StreamExt},
     tokio::time::{interval, Duration},
@@ -96,54 +98,14 @@ pub async fn subscribe_balance_udpates(
         while let Some(message) = stream.next().await {
             match message?.update_oneof.expect("valid message") {
                 UpdateOneof::Ping(_msg) => {
-                    info!("ping received");
+                    debug!("ping received");
                 }
                 UpdateOneof::Pong(SubscribeUpdatePong { id }) => {
-                    info!("pong received: id#{id}");
+                    debug!("pong received: id#{id}");
                 }
                 UpdateOneof::Account(SubscribeUpdateAccount { account, slot, .. }) => {
                     if let Some(account) = account {
-                        let account_pubkey = Pubkey::try_from(account.pubkey.clone()).unwrap();
-                        let owner_pubkey = Pubkey::try_from(account.owner.clone()).unwrap();
-
-                        let balance_update = if owner_pubkey == system_program::id() {
-                            Some(BalanceUpdate {
-                                is_native: true,
-                                pubkey: account_pubkey,
-                                mint: None,
-                                amount: account.lamports,
-                                slot,
-                            })
-                        } else if owner_pubkey == spl_token::id() {
-                            let account_state = spl_token::state::Account::unpack_from_slice(
-                                account.data.as_slice(),
-                            )
-                            .unwrap();
-                            Some(BalanceUpdate {
-                                is_native: false,
-                                pubkey: account_pubkey,
-                                mint: Some(account_state.mint),
-                                amount: account_state.amount,
-                                slot,
-                            })
-                        } else if owner_pubkey == spl_token_2022::id() {
-                            let account_state = spl_token_2022::state::Account::unpack_from_slice(
-                                account.data.as_slice(),
-                            )
-                            .unwrap();
-                            Some(BalanceUpdate {
-                                is_native: false,
-                                pubkey: account_pubkey,
-                                mint: Some(account_state.mint),
-                                amount: account_state.amount,
-                                slot,
-                            })
-                        } else {
-                            tracing::warn!("ignore account update {:?}", account);
-                            None
-                        };
-
-                        if let Some(balance_update) = balance_update {
+                        if let Some(balance_update) = get_balance_update(account, slot) {
                             if let Err(err) = tx.send(balance_update).await {
                                 error!("send error: {}", err);
                             }
@@ -157,4 +119,42 @@ pub async fn subscribe_balance_udpates(
     });
 
     Ok(rx)
+}
+
+fn get_balance_update(account: SubscribeUpdateAccountInfo, slot: u64) -> Option<BalanceUpdate> {
+    let account_pubkey = Pubkey::try_from(account.pubkey.clone()).unwrap();
+    let owner_pubkey = Pubkey::try_from(account.owner.clone()).unwrap();
+
+    if owner_pubkey == system_program::id() {
+        Some(BalanceUpdate {
+            is_native: true,
+            pubkey: account_pubkey,
+            mint: None,
+            amount: account.lamports,
+            slot,
+        })
+    } else if owner_pubkey == spl_token::id() {
+        let account_state =
+            spl_token::state::Account::unpack_from_slice(account.data.as_slice()).unwrap();
+        Some(BalanceUpdate {
+            is_native: false,
+            pubkey: account_pubkey,
+            mint: Some(account_state.mint),
+            amount: account_state.amount,
+            slot,
+        })
+    } else if owner_pubkey == spl_token_2022::id() {
+        let account_state =
+            spl_token_2022::state::Account::unpack_from_slice(account.data.as_slice()).unwrap();
+        Some(BalanceUpdate {
+            is_native: false,
+            pubkey: account_pubkey,
+            mint: Some(account_state.mint),
+            amount: account_state.amount,
+            slot,
+        })
+    } else {
+        tracing::warn!("ignore account update {:?}", account);
+        None
+    }
 }
